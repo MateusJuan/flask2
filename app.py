@@ -1,5 +1,6 @@
 from flask import Flask, request, render_template, redirect
 from flask_sqlalchemy import SQLAlchemy
+from flask import abort
 
 app = Flask(__name__)
 
@@ -16,7 +17,7 @@ class EmployeeModel(db.Model):
     age = db.Column(db.Integer, nullable=False)
     position = db.Column(db.String(100), nullable=False)
 
-@app.before_first_request
+@app.before_request
 def create_table():
     db.create_all()
     
@@ -34,6 +35,48 @@ def create():
         db.session.add(employee)
         db.session.commit()
         return redirect('/data')
+
+@app.route('/data')
+def RetieveList():
+    employees = EmployeeModel.query.all()
+    return render_template('datalist.html',employees = employees)
+
+@app.route('/data/<int:id>')
+def RetrieveEmployee(id):
+    employee = EmployeeModel.query.filter_by(employee_id=id).first()
+    if employee:
+        return render_template('data.html',employee=employee)
+    return f"Employee with id = {id} Doenst exist"
+
+@app.route('/data/<int:id>/update',methods = ['GET', 'POST'])
+def update (id):
+    employee = EmployeeModel.query.filter_by(employee_id=id).first()
+    if request.method == 'POST':
+        if employee :
+            db.session.delete(employee)
+            db.session.commit()
+            name = request.form['name']
+            age = request.form['age']
+            position = request.form['position']
+            employee = EmployeeModel(employee_id=id, name=name, age=age, position=position)
+            db.session.add(employee)
+            db.session.commit()
+            return redirect (f'/data/{id}')
+        return f"Employee with id = {id} Doenst exist"
+    
+    return render_template('update.html', employee = employee)
+
+@app.route('/data/<int:id>/delete',methods=['GET','POST'])
+def delete(id):
+    employee = EmployeeModel.query.filter_by(employee_id=id).first()
+    if request.method == 'POST':
+        if employee:
+            db.session.delete(employee)
+            db.session.commit()
+            return redirect('/data')
+        abort(404)
+    
+    return render_template('delete.html')
 
 if __name__ == '__main__':
     app.run(host='localhost', port=5000)
